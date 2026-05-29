@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OrganizaAPS</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <header class="topbar shell">
+      <div class="brand">
+        <span class="brand-mark"></span>
+        <div>
+          <h1>OrganizaAPS</h1>
+          <p>Gestantes e puérperas</p>
+        </div>
+      </div>
+      <button id="refreshButton" class="ghost-button" type="button">Atualizar</button>
+    </header>
+
+    <main class="shell page">
+      <section id="statsGrid" class="stats-row"></section>
+
+      <section class="overview-grid">
+        <article class="panel">
+          <div class="section-head">
+            <h2>Fila</h2>
+          </div>
+          <div id="priorityList" class="stack-list"></div>
+        </article>
+
+        <article class="panel">
+          <div class="section-head">
+            <h2>Indicadores</h2>
+          </div>
+          <div id="coverageList" class="coverage-list"></div>
+        </article>
+      </section>
+
+      <section class="workspace-grid">
+        <article class="panel list-panel">
+          <div class="section-head">
+            <h2>Carteira</h2>
+            <span id="patientCountLabel" class="section-meta">0</span>
+          </div>
+
+          <form id="filtersForm" class="filters">
+            <input id="searchInput" name="search" type="search" placeholder="Buscar" />
+
+            <select id="riskFilter" name="risk">
+              <option value="all">Todos os riscos</option>
+              <option value="Baixo risco">Baixo risco</option>
+              <option value="Risco intermediario">Risco intermediário</option>
+              <option value="Alto risco">Alto risco</option>
+            </select>
+
+            <select id="statusFilter" name="status">
+              <option value="all">Todas as fases</option>
+              <option value="gestante">Gestantes</option>
+              <option value="puerpera">Puérperas</option>
+              <option value="encerrado">Encerradas</option>
+            </select>
+          </form>
+
+          <div id="patientsList" class="patient-list"></div>
+        </article>
+
+        <article class="panel detail-panel">
+          <div id="patientEmpty" class="empty-state">
+            <div>
+              <h2>Base vazia</h2>
+              <p>Cadastre a primeira usuária.</p>
+              <a class="primary-link" href="#newPatientSection">Novo cadastro</a>
+            </div>
+          </div>
+          <div id="patientDetail"></div>
+        </article>
+      </section>
+
+      <section id="newPatientSection" class="panel form-panel">
+        <div class="section-head">
+          <h2>Novo cadastro</h2>
+        </div>
+
+        <form id="newPatientForm" class="form-grid">
+          <input name="name" placeholder="Nome" required />
+          <input name="locality" placeholder="Localidade" />
+
+          <select name="risk_level">
+            <option>Baixo risco</option>
+            <option>Risco intermediario</option>
+            <option>Alto risco</option>
+          </select>
+
+          <select name="status">
+            <option value="gestante">Gestante</option>
+            <option value="puerpera">Puérpera</option>
+          </select>
+
+          <input name="gestational_weeks" type="number" min="1" max="45" placeholder="IG semanas" />
+          <input name="dum" type="date" />
+          <input name="dpp" type="date" />
+          <input name="maternity_reference" placeholder="Maternidade" />
+          <textarea class="wide" name="notes" rows="3" placeholder="Observações"></textarea>
+
+          <div class="wide form-actions">
+            <button type="submit" class="primary-button">Cadastrar</button>
+          </div>
+        </form>
+      </section>
+    </main>
+
+    <script type="module" src="/static/app.js"></script>
+  </body>
+</html>
