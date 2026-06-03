@@ -15,98 +15,194 @@
           <p>Gestantes e puérperas</p>
         </div>
       </div>
-      <button id="refreshButton" class="ghost-button" type="button">Atualizar</button>
+      <div class="topbar-actions">
+        <span id="userLabel" class="user-badge" hidden></span>
+        <button id="refreshButton" class="ghost-button" type="button" hidden>Atualizar</button>
+        <button id="logoutButton" class="ghost-button" type="button" hidden>Sair</button>
+      </div>
     </header>
 
-    <main class="shell page">
-      <section id="statsGrid" class="stats-row"></section>
-
-      <section class="overview-grid">
-        <article class="panel">
+    <main class="shell">
+      <section id="authScreen" class="auth-shell">
+        <article id="setupCard" class="panel auth-card" hidden>
           <div class="section-head">
-            <h2>Fila</h2>
+            <h2>Configuração inicial</h2>
           </div>
-          <div id="priorityList" class="stack-list"></div>
-        </article>
-
-        <article class="panel">
-          <div class="section-head">
-            <h2>Indicadores</h2>
-          </div>
-          <div id="coverageList" class="coverage-list"></div>
-        </article>
-      </section>
-
-      <section class="workspace-grid">
-        <article class="panel list-panel">
-          <div class="section-head">
-            <h2>Carteira</h2>
-            <span id="patientCountLabel" class="section-meta">0</span>
-          </div>
-
-          <form id="filtersForm" class="filters">
-            <input id="searchInput" name="search" type="search" placeholder="Buscar" />
-
-            <select id="riskFilter" name="risk">
-              <option value="all">Todos os riscos</option>
-              <option value="Baixo risco">Baixo risco</option>
-              <option value="Risco intermediario">Risco intermediário</option>
-              <option value="Alto risco">Alto risco</option>
-            </select>
-
-            <select id="statusFilter" name="status">
-              <option value="all">Todas as fases</option>
-              <option value="gestante">Gestantes</option>
-              <option value="puerpera">Puérperas</option>
-              <option value="encerrado">Encerradas</option>
-            </select>
-          </form>
-
-          <div id="patientsList" class="patient-list"></div>
-        </article>
-
-        <article class="panel detail-panel">
-          <div id="patientEmpty" class="empty-state">
-            <div>
-              <h2>Base vazia</h2>
-              <p>Cadastre a primeira usuária.</p>
-              <a class="primary-link" href="#newPatientSection">Novo cadastro</a>
+          <form id="setupForm" class="form-grid">
+            <input name="full_name" placeholder="Nome completo" required />
+            <input name="email" type="email" placeholder="E-mail" required />
+            <input name="password" type="password" placeholder="Senha com 8+ caracteres" required />
+            <div class="wide form-actions">
+              <button class="primary-button" type="submit">Criar acesso</button>
             </div>
+          </form>
+        </article>
+
+        <article id="loginCard" class="panel auth-card" hidden>
+          <div class="section-head">
+            <h2>Entrar</h2>
           </div>
-          <div id="patientDetail"></div>
+          <form id="loginForm" class="form-grid">
+            <input name="email" type="email" placeholder="E-mail" required />
+            <input name="password" type="password" placeholder="Senha" required />
+            <div class="wide form-actions">
+              <button class="primary-button" type="submit">Entrar</button>
+            </div>
+          </form>
         </article>
       </section>
 
-      <section id="newPatientSection" class="panel form-panel">
-        <div class="section-head">
-          <h2>Novo cadastro</h2>
-        </div>
+      <section id="appShell" class="page" hidden>
+        <section id="statsGrid" class="stats-row"></section>
 
-        <form id="newPatientForm" class="form-grid">
-          <input name="name" placeholder="Nome" required />
-          <input name="locality" placeholder="Localidade" />
+        <section class="overview-grid">
+          <article class="panel">
+            <div class="section-head">
+              <h2>Fila</h2>
+            </div>
+            <div id="priorityList" class="stack-list"></div>
+          </article>
 
-          <select name="risk_level">
-            <option>Baixo risco</option>
-            <option>Risco intermediario</option>
-            <option>Alto risco</option>
-          </select>
+          <article class="panel">
+            <div class="section-head">
+              <h2>Indicadores</h2>
+            </div>
+            <div id="coverageList" class="coverage-list"></div>
+          </article>
+        </section>
 
-          <select name="status">
-            <option value="gestante">Gestante</option>
-            <option value="puerpera">Puérpera</option>
-          </select>
+        <section class="overview-grid">
+          <article class="panel">
+            <div class="section-head">
+              <h2>Importação PEC</h2>
+            </div>
+            <form id="importForm" class="form-grid">
+              <select name="source_kind">
+                <option value="auto">Detecção automática do arquivo</option>
+                <option value="pec">Planilha do PEC / aba Dados</option>
+                <option value="registro">Planilha simplificada Registro pac.</option>
+              </select>
+              <input name="file" type="file" accept=".xlsx,.xlsm,.csv,.tsv,.txt" required />
+              <div class="wide form-actions">
+                <button class="primary-button" type="submit">Importar planilha</button>
+              </div>
+            </form>
+            <div class="import-rules">
+              <span class="pill pill-status">CPF/CNS</span>
+              <span class="pill pill-status">Prontuário</span>
+              <span class="pill pill-status">Nome + nascimento</span>
+            </div>
+          </article>
 
-          <input name="gestational_weeks" type="number" min="1" max="45" placeholder="IG semanas" />
-          <input name="dum" type="date" />
-          <input name="dpp" type="date" />
-          <input name="maternity_reference" placeholder="Maternidade" />
-          <textarea class="wide" name="notes" rows="3" placeholder="Observações"></textarea>
+          <article class="panel">
+            <div class="section-head">
+              <h2>Últimas importações</h2>
+            </div>
+            <div id="importRunsList" class="stack-list"></div>
+          </article>
+        </section>
 
-          <div class="wide form-actions">
-            <button type="submit" class="primary-button">Cadastrar</button>
+        <section id="teamSection" class="overview-grid" hidden>
+          <article class="panel">
+            <div class="section-head">
+              <h2>Equipe</h2>
+            </div>
+            <div id="teamList" class="stack-list"></div>
+          </article>
+
+          <article class="panel">
+            <div class="section-head">
+              <h2>Novo acesso</h2>
+            </div>
+            <form id="teamForm" class="form-grid">
+              <input name="full_name" placeholder="Nome completo" required />
+              <input name="email" type="email" placeholder="E-mail" required />
+              <select name="role">
+                <option value="nurse">Enfermagem</option>
+                <option value="acs">ACS</option>
+                <option value="viewer">Somente leitura</option>
+                <option value="admin">Administrador</option>
+              </select>
+              <input name="password" type="password" placeholder="Senha inicial" required />
+              <div class="wide form-actions">
+                <button class="primary-button" type="submit">Criar usuário</button>
+              </div>
+            </form>
+          </article>
+        </section>
+
+        <section class="workspace-grid">
+          <article class="panel list-panel">
+            <div class="section-head">
+              <h2>Carteira</h2>
+              <span id="patientCountLabel" class="section-meta">0</span>
+            </div>
+
+            <form id="filtersForm" class="filters">
+              <input id="searchInput" name="search" type="search" placeholder="Buscar" />
+
+              <select id="riskFilter" name="risk">
+                <option value="all">Todos os riscos</option>
+                <option value="Baixo risco">Baixo risco</option>
+                <option value="Risco intermediario">Risco intermediário</option>
+                <option value="Alto risco">Alto risco</option>
+              </select>
+
+              <select id="statusFilter" name="status">
+                <option value="all">Todas as fases</option>
+                <option value="gestante">Gestantes</option>
+                <option value="puerpera">Puérperas</option>
+                <option value="encerrado">Encerradas</option>
+              </select>
+            </form>
+
+            <div id="patientsList" class="patient-list"></div>
+          </article>
+
+          <article class="panel detail-panel">
+            <div id="patientEmpty" class="empty-state">
+              <div>
+                <h2>Base vazia</h2>
+                <p>Cadastre a primeira usuária ou faça a importação do PEC.</p>
+                <a class="primary-link" href="#newPatientSection">Novo cadastro</a>
+              </div>
+            </div>
+            <div id="patientDetail"></div>
+          </article>
+        </section>
+
+        <section id="newPatientSection" class="panel form-panel">
+          <div class="section-head">
+            <h2>Novo cadastro</h2>
           </div>
-        </form>
+
+          <form id="newPatientForm" class="form-grid">
+            <input name="name" placeholder="Nome" required />
+            <input name="locality" placeholder="Localidade" />
+
+            <select name="risk_level">
+              <option>Baixo risco</option>
+              <option>Risco intermediario</option>
+              <option>Alto risco</option>
+            </select>
+
+            <select name="status">
+              <option value="gestante">Gestante</option>
+              <option value="puerpera">Puérpera</option>
+            </select>
+
+            <input name="gestational_weeks" type="number" min="1" max="45" placeholder="IG semanas" />
+            <input name="dum" type="date" />
+            <input name="dpp" type="date" />
+            <input name="actual_birth_date" type="date" />
+            <input name="maternity_reference" placeholder="Maternidade" />
+            <textarea class="wide" name="notes" rows="3" placeholder="Observações"></textarea>
+
+            <div class="wide form-actions">
+              <button type="submit" class="primary-button">Cadastrar</button>
+            </div>
+          </form>
+        </section>
       </section>
     </main>
 
