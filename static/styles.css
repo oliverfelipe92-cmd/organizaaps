@@ -49,6 +49,12 @@ body {
   margin-bottom: 24px;
 }
 
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .brand {
   display: flex;
   align-items: center;
@@ -84,6 +90,18 @@ body {
   letter-spacing: 0.12em;
 }
 
+.user-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 42px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: rgba(255, 253, 249, 0.94);
+  border: 1px solid rgba(221, 213, 203, 0.9);
+  color: var(--muted);
+  font-weight: 700;
+}
+
 .page,
 .overview-grid,
 .workspace-grid,
@@ -97,6 +115,16 @@ body {
 .priority-pills {
   display: grid;
   gap: 16px;
+}
+
+.auth-shell {
+  display: grid;
+  place-items: center;
+  min-height: calc(100vh - 180px);
+}
+
+.auth-card {
+  width: min(560px, 100%);
 }
 
 .stats-row {
@@ -319,6 +347,31 @@ textarea {
 .detail-shell {
   display: grid;
   gap: 16px;
+}
+
+.team-card {
+  display: grid;
+  gap: 14px;
+  padding: 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line);
+  background: white;
+}
+
+.team-grid,
+.import-rules {
+  display: grid;
+  gap: 10px;
+}
+
+.team-grid {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  align-items: center;
+}
+
+.import-rules {
+  grid-template-columns: repeat(auto-fit, minmax(140px, max-content));
+  margin-top: 14px;
 }
 
 .detail-card {
