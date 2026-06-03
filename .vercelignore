@@ -1,0 +1,10 @@
+.git
+__pycache__/
+*.pyc
+.DS_Store
+README.md
+docs/
+deploy/
+render.yaml
+tests/
+data/
