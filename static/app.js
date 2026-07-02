@@ -770,9 +770,10 @@ function applyWritePermissionsToDetail() {
 refs.setupForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   setAuthFeedback("");
+  const payload = formToJson(event.currentTarget);
   setFormBusy(event.currentTarget, true, "Criando...");
   try {
-    await apiJson("/api/setup", { method: "POST", body: formToJson(event.currentTarget) });
+    await apiJson("/api/setup", { method: "POST", body: payload });
     event.currentTarget.reset();
     await refreshBootstrap();
     toast("Administrador criado.");
@@ -786,9 +787,10 @@ refs.setupForm.addEventListener("submit", async (event) => {
 refs.loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   setAuthFeedback("");
+  const payload = formToJson(event.currentTarget);
   setFormBusy(event.currentTarget, true, "Entrando...");
   try {
-    await apiJson("/api/auth/login", { method: "POST", body: formToJson(event.currentTarget) });
+    await apiJson("/api/auth/login", { method: "POST", body: payload });
     event.currentTarget.reset();
     await refreshBootstrap();
     toast("Acesso liberado.");
