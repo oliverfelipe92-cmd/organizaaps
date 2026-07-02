@@ -2,14 +2,32 @@ from __future__ import annotations
 
 import traceback
 from http.server import BaseHTTPRequestHandler
+from threading import Lock
+
+
+_init_lock = Lock()
+_initialized = False
+
+
+def ensure_database_once() -> None:
+    global _initialized
+    if _initialized:
+        return
+    with _init_lock:
+        if _initialized:
+            return
+        from app import ensure_database
+
+        ensure_database()
+        _initialized = True
 
 
 class handler(BaseHTTPRequestHandler):
     def _dispatch(self, method_name: str) -> None:
         try:
-            from app import UBSRequestHandler, ensure_database
+            from app import UBSRequestHandler
 
-            ensure_database()
+            ensure_database_once()
             getattr(UBSRequestHandler, method_name)(self)
         except Exception as exc:  # pragma: no cover - runtime safety for Vercel
             payload = (
