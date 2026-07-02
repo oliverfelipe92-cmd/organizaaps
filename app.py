@@ -6,7 +6,7 @@ import json
 import mimetypes
 import os
 import re
-from datetime import UTC, datetime
+from datetime import datetime
 from http import HTTPStatus
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -30,8 +30,9 @@ from ubs_monitor.indicators import EVENT_LABELS, INDICATOR_DEFINITIONS, summariz
 
 ROOT = Path(__file__).parent
 STATIC_DIR = ROOT / "static"
+DEFAULT_DB_PATH = "/tmp/monitor.db" if os.environ.get("VERCEL") else str(ROOT / "data" / "monitor.db")
 DB_TARGET = os.environ.get("DATABASE_URL") or os.environ.get("SUPABASE_DB_URL") or Path(
-    os.environ.get("DATABASE_PATH", str(ROOT / "data" / "monitor.db"))
+    os.environ.get("DATABASE_PATH", DEFAULT_DB_PATH)
 )
 SESSION_COOKIE = "organizaaps_session"
 USER_ROLES = ("admin", "nurse", "acs", "viewer")
@@ -44,6 +45,162 @@ ROLE_LABELS = {
 WRITE_ROLES = {"admin", "nurse", "acs"}
 TEAM_ADMIN_ROLES = {"admin"}
 IMPORT_ROLES = {"admin", "nurse"}
+
+PATIENT_TEXT_FIELDS = (
+    "external_code",
+    "cpf",
+    "cns",
+    "name",
+    "sex",
+    "race_color",
+    "mother_name",
+    "locality",
+    "microarea",
+    "area_team",
+    "record_responsible",
+    "gestational_age_label",
+    "fetal_heartbeat",
+    "vaccination_status",
+    "rapid_tests_status",
+    "trimester_exams_status",
+    "dental_evaluation_status",
+    "risk_factor_1",
+    "risk_factor_2",
+    "risk_factor_3",
+    "hypertensive_disease_status",
+    "preeclampsia_risk_factors",
+    "preeclampsia_prophylaxis",
+    "uti_status",
+    "uti_treatment",
+    "uti_cure_control",
+    "gestational_diabetes_status",
+    "medications_in_use",
+    "reproductive_planning_status",
+    "active_search_reason",
+    "last_professional",
+    "maternity_reference",
+    "breastfeeding_status",
+    "postpartum_intercurrences",
+    "postpartum_reproductive_planning",
+    "delivery_type",
+    "delivery_intercurrences",
+    "outcome",
+    "notes",
+)
+PATIENT_DATE_FIELDS = (
+    "birth_date",
+    "dum",
+    "dpp",
+    "actual_birth_date",
+    "last_consultation_date",
+    "next_scheduled_visit",
+    "discharge_date",
+)
+PATIENT_INT_FIELDS = (
+    "gestational_weeks",
+    "systolic_bp",
+    "diastolic_bp",
+    "urgent_care_last_year",
+    "hospitalizations_last_year",
+)
+PATIENT_FLOAT_FIELDS = (
+    "first_trimester_ultrasound_weeks",
+    "weight_kg",
+    "height_cm",
+    "bmi",
+    "weight_gain_kg",
+    "capillary_glucose",
+    "uterine_height_cm",
+)
+PATIENT_BOOL_FIELDS = (
+    "pregnancy_booklet_updated",
+    "care_plan_defined",
+    "care_plan_monitored",
+    "shared_care",
+    "maternity_linked",
+    "maternity_risk_updated",
+    "postpartum_home_visit_7d",
+    "postpartum_consult_7d",
+    "postpartum_consult_42d",
+    "postpartum_consult_after_42d",
+    "high_risk_shared_care",
+    "active_search",
+)
+PATIENT_DB_FIELDS = (
+    "external_code",
+    "cpf",
+    "cns",
+    "name",
+    "birth_date",
+    "sex",
+    "race_color",
+    "mother_name",
+    "locality",
+    "microarea",
+    "area_team",
+    "record_responsible",
+    "risk_level",
+    "status",
+    "gestational_weeks",
+    "gestational_age_label",
+    "dum",
+    "dpp",
+    "first_trimester_ultrasound_weeks",
+    "weight_kg",
+    "height_cm",
+    "bmi",
+    "weight_gain_kg",
+    "systolic_bp",
+    "diastolic_bp",
+    "capillary_glucose",
+    "fetal_heartbeat",
+    "uterine_height_cm",
+    "vaccination_status",
+    "rapid_tests_status",
+    "trimester_exams_status",
+    "dental_evaluation_status",
+    "pregnancy_booklet_updated",
+    "actual_birth_date",
+    "last_consultation_date",
+    "last_professional",
+    "risk_factor_1",
+    "risk_factor_2",
+    "risk_factor_3",
+    "hypertensive_disease_status",
+    "preeclampsia_risk_factors",
+    "preeclampsia_prophylaxis",
+    "uti_status",
+    "uti_treatment",
+    "uti_cure_control",
+    "gestational_diabetes_status",
+    "medications_in_use",
+    "urgent_care_last_year",
+    "hospitalizations_last_year",
+    "reproductive_planning_status",
+    "care_plan_defined",
+    "care_plan_monitored",
+    "shared_care",
+    "next_scheduled_visit",
+    "active_search",
+    "active_search_reason",
+    "maternity_linked",
+    "maternity_reference",
+    "maternity_risk_updated",
+    "postpartum_home_visit_7d",
+    "postpartum_consult_7d",
+    "postpartum_consult_42d",
+    "postpartum_consult_after_42d",
+    "breastfeeding_status",
+    "postpartum_intercurrences",
+    "postpartum_reproductive_planning",
+    "delivery_type",
+    "discharge_date",
+    "delivery_intercurrences",
+    "outcome",
+    "high_risk_shared_care",
+    "source",
+    "notes",
+)
 
 
 def ensure_database() -> None:
@@ -141,6 +298,15 @@ def coerce_int(value):
         return None
 
 
+def coerce_float(value):
+    if value in (None, ""):
+        return None
+    try:
+        return float(str(value).replace(",", "."))
+    except (TypeError, ValueError):
+        return None
+
+
 def coerce_bool(value) -> int:
     if isinstance(value, bool):
         return 1 if value else 0
@@ -164,6 +330,72 @@ def normalize_risk(value: str | None) -> str:
     if "baixo" in text:
         return "Baixo risco"
     return "Sem classificacao"
+
+
+def clean_text_field(value) -> str | None:
+    text = (value or "").strip()
+    return text or None
+
+
+def derive_bmi(payload: dict) -> float | None:
+    weight = payload.get("weight_kg")
+    height_cm = payload.get("height_cm")
+    if not weight or not height_cm:
+        return None
+    height_m = height_cm / 100
+    if height_m <= 0:
+        return None
+    return round(weight / (height_m * height_m), 1)
+
+
+def patient_fields_from_payload(payload: dict, *, require_name: bool = False) -> dict:
+    fields: dict = {}
+
+    for field in PATIENT_TEXT_FIELDS:
+        if field in payload:
+            fields[field] = clean_text_field(payload.get(field))
+
+    for field in PATIENT_DATE_FIELDS:
+        if field in payload:
+            fields[field] = clean_text_field(payload.get(field))
+
+    for field in PATIENT_INT_FIELDS:
+        if field in payload:
+            fields[field] = coerce_int(payload.get(field))
+
+    for field in PATIENT_FLOAT_FIELDS:
+        if field in payload:
+            fields[field] = coerce_float(payload.get(field))
+
+    for field in PATIENT_BOOL_FIELDS:
+        if field in payload:
+            fields[field] = coerce_bool(payload.get(field))
+
+    if "risk_level" in payload:
+        fields["risk_level"] = normalize_risk(payload.get("risk_level"))
+    if "status" in payload:
+        fields["status"] = normalize_status(payload.get("status"))
+
+    if require_name:
+        name = clean_text_field(payload.get("name"))
+        if not name:
+            raise ValueError("Nome da usuaria e obrigatorio.")
+        fields["name"] = name
+
+    if fields.get("actual_birth_date"):
+        fields["status"] = "puerpera"
+
+    if "maternity_reference" in fields and fields.get("maternity_reference") and "maternity_linked" not in fields:
+        fields["maternity_linked"] = 1
+    if fields.get("shared_care") and "high_risk_shared_care" not in fields:
+        fields["high_risk_shared_care"] = 1
+
+    if ("weight_kg" in fields or "height_cm" in fields) and ("bmi" not in payload or fields.get("bmi") is None):
+        bmi = derive_bmi(fields)
+        if bmi is not None:
+            fields["bmi"] = bmi
+
+    return fields
 
 
 def serialize_user(row: dict | None) -> dict | None:
@@ -410,11 +642,61 @@ def dashboard_payload(connection, search: str = "", risk: str = "", status: str 
             if indicator["state"] == "completed":
                 coverage[indicator["code"]]["done"] += 1
 
+    def has_pending_indicator(patient: dict, code: str) -> bool:
+        return any(item["code"] == code and item["state"] == "pending" for item in patient["indicator_results"])
+
     total = len(details)
     high_risk = sum(1 for patient in details if patient["risk_level"] == "Alto risco")
     puerperas = sum(1 for patient in details if patient["status"] == "puerpera")
     overdue = sum(1 for patient in details if patient["days_since_last_consult"] and patient["days_since_last_consult"] > 30)
     avg_journey = round(sum(patient["journey_score"] for patient in details) / total, 1) if total else 0
+    late_capture = sum(
+        1
+        for patient in details
+        if has_pending_indicator(patient, "A")
+        and ((patient.get("gestational_weeks") or 0) >= 12 or patient["status"] == "puerpera")
+    )
+    without_tests = sum(
+        1
+        for patient in details
+        if has_pending_indicator(patient, "G")
+        or ((patient.get("gestational_weeks") or 0) >= 28 and has_pending_indicator(patient, "H"))
+    )
+    without_dental = sum(1 for patient in details if has_pending_indicator(patient, "K"))
+    without_maternity = sum(
+        1 for patient in details if patient["status"] in {"gestante", "puerpera"} and not patient.get("maternity_reference")
+    )
+    high_risk_without_shared_care = sum(
+        1
+        for patient in details
+        if patient["risk_level"] == "Alto risco" and not patient.get("high_risk_shared_care") and not patient.get("shared_care")
+    )
+    puerperas_without_7d_visit = sum(
+        1
+        for patient in details
+        if patient["status"] == "puerpera"
+        and patient.get("postpartum_days") is not None
+        and 0 <= patient["postpartum_days"] <= 7
+        and not patient.get("postpartum_home_visit_7d")
+        and has_pending_indicator(patient, "J")
+    )
+    puerperas_without_42d_consult = sum(
+        1
+        for patient in details
+        if patient["status"] == "puerpera"
+        and patient.get("postpartum_days") is not None
+        and 0 <= patient["postpartum_days"] <= 42
+        and not patient.get("postpartum_consult_42d")
+        and has_pending_indicator(patient, "I")
+    )
+
+    locality_counts: dict[str, int] = {}
+    professional_counts: dict[str, int] = {}
+    for patient in details:
+        locality_key = patient.get("microarea") or patient.get("locality") or "Sem localidade"
+        professional_key = patient.get("last_professional") or patient.get("record_responsible") or "Sem profissional"
+        locality_counts[locality_key] = locality_counts.get(locality_key, 0) + 1
+        professional_counts[professional_key] = professional_counts.get(professional_key, 0) + 1
 
     priorities.sort(key=lambda item: {"alta": 0, "media": 1, "baixa": 2}.get(item["level"], 3))
 
@@ -423,10 +705,12 @@ def dashboard_payload(connection, search: str = "", risk: str = "", status: str 
             "id": patient["id"],
             "name": patient["name"],
             "locality": patient.get("locality"),
+            "microarea": patient.get("microarea"),
             "risk_level": patient.get("risk_level"),
             "status": patient.get("status"),
             "stage_label": patient.get("stage_label"),
             "last_consultation_date": patient.get("last_consultation_date"),
+            "last_professional": patient.get("last_professional"),
             "journey_score": patient.get("journey_score"),
             "current_score": patient.get("current_score"),
             "days_since_last_consult": patient.get("days_since_last_consult"),
@@ -442,62 +726,42 @@ def dashboard_payload(connection, search: str = "", risk: str = "", status: str 
             "puerperas": puerperas,
             "average_journey_score": avg_journey,
             "overdue_follow_ups": overdue,
+            "late_capture": late_capture,
+            "without_tests": without_tests,
+            "without_dental": without_dental,
+            "without_maternity": without_maternity,
+            "high_risk_without_shared_care": high_risk_without_shared_care,
+            "puerperas_without_7d_visit": puerperas_without_7d_visit,
+            "puerperas_without_42d_consult": puerperas_without_42d_consult,
         },
         "patients": summaries,
         "priorities": priorities[:10],
         "coverage": list(coverage.values()),
+        "breakdowns": {
+            "locality": sorted(locality_counts.items(), key=lambda item: (-item[1], item[0]))[:8],
+            "professional": sorted(professional_counts.items(), key=lambda item: (-item[1], item[0]))[:8],
+        },
     }
 
 
 def create_patient(connection, payload: dict) -> int:
-    name = (payload.get("name") or "").strip()
-    if not name:
-        raise ValueError("Nome da usuaria e obrigatorio.")
+    fields = patient_fields_from_payload(payload, require_name=True)
+    fields.setdefault("risk_level", "Sem classificacao")
+    fields.setdefault("status", "gestante")
+    fields["source"] = "cadastro_manual"
 
-    locality = (payload.get("locality") or "").strip() or None
-    risk_level = normalize_risk(payload.get("risk_level"))
-    status = normalize_status(payload.get("status"))
-    weeks = coerce_int(payload.get("gestational_weeks"))
-    notes = (payload.get("notes") or "").strip() or None
-    dum = (payload.get("dum") or "").strip() or None
-    dpp = (payload.get("dpp") or "").strip() or None
-    actual_birth_date = (payload.get("actual_birth_date") or "").strip() or None
-
-    if actual_birth_date:
-        status = "puerpera"
-
-    params = (
-        name,
-        locality,
-        risk_level,
-        status,
-        weeks,
-        dum,
-        dpp,
-        actual_birth_date,
-        (payload.get("maternity_reference") or "").strip() or None,
-        notes,
-        "cadastro_manual",
-    )
+    columns = [field for field in PATIENT_DB_FIELDS if field in fields]
+    params = [fields.get(field) for field in columns]
+    placeholders = ", ".join("?" for _ in columns)
+    columns_sql = ", ".join(columns)
     if is_postgres_connection(connection):
         patient_id = connection.execute(
-            """
-            INSERT INTO patients (
-                name, locality, risk_level, status, gestational_weeks,
-                dum, dpp, actual_birth_date, maternity_reference, notes, source
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            RETURNING id
-            """,
+            f"INSERT INTO patients ({columns_sql}) VALUES ({placeholders}) RETURNING id",
             params,
         ).fetchone()["id"]
     else:
         patient_id = connection.execute(
-            """
-            INSERT INTO patients (
-                name, locality, risk_level, status, gestational_weeks,
-                dum, dpp, actual_birth_date, maternity_reference, notes, source
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
+            f"INSERT INTO patients ({columns_sql}) VALUES ({placeholders})",
             params,
         ).lastrowid
     connection.commit()
@@ -505,38 +769,11 @@ def create_patient(connection, payload: dict) -> int:
 
 
 def update_patient(connection, patient_id: int, payload: dict) -> None:
-    allowed = {
-        "name": (payload.get("name") or "").strip() or None,
-        "locality": (payload.get("locality") or "").strip() or None,
-        "risk_level": normalize_risk(payload.get("risk_level")),
-        "status": normalize_status(payload.get("status")),
-        "gestational_weeks": coerce_int(payload.get("gestational_weeks")),
-        "gestational_age_label": (payload.get("gestational_age_label") or "").strip() or None,
-        "dum": (payload.get("dum") or "").strip() or None,
-        "dpp": (payload.get("dpp") or "").strip() or None,
-        "actual_birth_date": (payload.get("actual_birth_date") or "").strip() or None,
-        "last_consultation_date": (payload.get("last_consultation_date") or "").strip() or None,
-        "last_professional": (payload.get("last_professional") or "").strip() or None,
-        "maternity_reference": (payload.get("maternity_reference") or "").strip() or None,
-        "high_risk_shared_care": coerce_bool(payload.get("high_risk_shared_care")),
-        "active_search": coerce_bool(payload.get("active_search")),
-        "notes": (payload.get("notes") or "").strip() or None,
-    }
-
-    set_parts = []
-    values = []
-    for field, value in allowed.items():
-        if field in payload:
-            set_parts.append(f"{field} = ?")
-            values.append(value)
-
-    if "actual_birth_date" in payload and allowed["actual_birth_date"]:
-        set_parts.append("status = ?")
-        values.append("puerpera")
-
-    if not set_parts:
+    fields = patient_fields_from_payload(payload)
+    if not fields:
         return
-
+    set_parts = [f"{field} = ?" for field in fields]
+    values = [fields[field] for field in fields]
     values.append(patient_id)
     connection.execute(
         f"UPDATE patients SET {', '.join(set_parts)} WHERE id = ?",
@@ -830,7 +1067,7 @@ class UBSRequestHandler(BaseHTTPRequestHandler):
 
             with connect(DB_TARGET) as connection:
                 if user_count(connection):
-                    send_error_json(self, "A configuracao inicial ja foi concluida.", status=409)
+                    send_error_json(self, "O acesso inicial ja foi criado. Entre com o usuario existente.", status=409)
                     return
                 try:
                     user_id = create_user(
@@ -869,7 +1106,7 @@ class UBSRequestHandler(BaseHTTPRequestHandler):
                     (clean_email,),
                 ).fetchone()
                 if not row or not verify_password(password, row["password_hash"]):
-                    send_error_json(self, "Credenciais invalidas.", status=401)
+                    send_error_json(self, "E-mail ou senha nao conferem.", status=401)
                     return
                 token = create_session(connection, row["id"])
                 user = serialize_user(dict(row))
