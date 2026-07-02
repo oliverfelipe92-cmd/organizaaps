@@ -6,59 +6,111 @@
     <title>OrganizaAPS</title>
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
-  <body>
+  <body class="app-body">
     <header class="topbar shell">
       <div class="brand">
         <span class="brand-mark"></span>
         <div>
-          <h1>OrganizaAPS</h1>
-          <p>Gestantes e puérperas</p>
+          <p class="eyebrow">OrganizaAPS</p>
+          <h1>Monitoramento materno</h1>
         </div>
       </div>
+
       <div class="topbar-actions">
         <span id="userLabel" class="user-badge" hidden></span>
         <button id="refreshButton" class="ghost-button" type="button" hidden>Atualizar</button>
-        <button id="logoutButton" class="ghost-button" type="button" hidden>Sair</button>
+        <button id="logoutButton" class="primary-button primary-button-soft" type="button" hidden>Sair</button>
       </div>
     </header>
 
     <main class="shell">
       <section id="authScreen" class="auth-shell">
-        <article id="setupCard" class="panel auth-card" hidden>
-          <div class="section-head">
-            <h2>Configuração inicial</h2>
-          </div>
-          <form id="setupForm" class="form-grid">
-            <input name="full_name" placeholder="Nome completo" required />
-            <input name="email" type="email" placeholder="E-mail" required />
-            <input name="password" type="password" placeholder="Senha com 8+ caracteres" required />
-            <div class="wide form-actions">
-              <button class="primary-button" type="submit">Criar acesso</button>
+        <div class="auth-layout">
+          <aside class="auth-stage">
+            <span class="eyebrow">Acesso da equipe</span>
+            <h2>Painel único para gestantes e puérperas da UBS.</h2>
+            <div class="auth-badges">
+              <span class="metric-pill">Equipe</span>
+              <span class="metric-pill">Indicadores</span>
+              <span class="metric-pill">PEC</span>
             </div>
-          </form>
-        </article>
+            <div class="hero-mini-grid">
+              <article class="hero-metric">
+                <strong>1</strong>
+                <span>base compartilhada</span>
+              </article>
+              <article class="hero-metric">
+                <strong>100%</strong>
+                <span>fluxo online</span>
+              </article>
+              <article class="hero-metric">
+                <strong>UBS</strong>
+                <span>visão de rotina</span>
+              </article>
+            </div>
+          </aside>
 
-        <article id="loginCard" class="panel auth-card" hidden>
-          <div class="section-head">
-            <h2>Entrar</h2>
+          <div class="auth-stack">
+            <div id="authFeedback" class="inline-feedback" hidden></div>
+
+            <article id="setupCard" class="panel auth-card" hidden>
+              <div class="auth-card-head">
+                <span class="eyebrow">Primeiro acesso</span>
+                <h2>Configurar ambiente</h2>
+              </div>
+              <form id="setupForm" class="form-grid">
+                <input name="full_name" placeholder="Nome completo" required />
+                <input name="email" type="email" placeholder="E-mail" required />
+                <input name="password" type="password" placeholder="Senha com 8+ caracteres" required />
+                <div class="wide form-actions">
+                  <button class="primary-button" type="submit">Criar acesso</button>
+                </div>
+              </form>
+            </article>
+
+            <article id="loginCard" class="panel auth-card" hidden>
+              <div class="auth-card-head">
+                <span class="eyebrow">Entrar</span>
+                <h2>Acessar painel</h2>
+              </div>
+              <form id="loginForm" class="form-grid">
+                <input name="email" type="email" placeholder="E-mail" required />
+                <input name="password" type="password" placeholder="Senha" required />
+                <div class="wide form-actions">
+                  <button class="primary-button" type="submit">Entrar</button>
+                </div>
+              </form>
+            </article>
           </div>
-          <form id="loginForm" class="form-grid">
-            <input name="email" type="email" placeholder="E-mail" required />
-            <input name="password" type="password" placeholder="Senha" required />
-            <div class="wide form-actions">
-              <button class="primary-button" type="submit">Entrar</button>
-            </div>
-          </form>
-        </article>
+        </div>
       </section>
 
       <section id="appShell" class="page" hidden>
+        <section class="panel hero-panel">
+          <div class="hero-panel-copy">
+            <span class="eyebrow">Painel da UBS</span>
+            <h2>Gestantes e puérperas sob acompanhamento</h2>
+            <p class="hero-subtitle">Cadastros, atendimentos, equipe e importação do PEC em um único fluxo.</p>
+          </div>
+          <div class="hero-panel-actions">
+            <a class="primary-link" href="#newPatientSection">Novo cadastro</a>
+            <a class="ghost-link" href="#importSection">Importar PEC</a>
+          </div>
+          <nav class="section-nav" aria-label="Atalhos do sistema">
+            <a class="nav-pill" href="#workspaceSection">Carteira</a>
+            <a class="nav-pill" href="#importSection">Importação</a>
+            <a class="nav-pill" href="#teamSection">Equipe</a>
+            <a class="nav-pill" href="#newPatientSection">Cadastro</a>
+          </nav>
+        </section>
+
         <section id="statsGrid" class="stats-row"></section>
 
         <section class="overview-grid">
           <article class="panel">
             <div class="section-head">
-              <h2>Fila</h2>
+              <h2>Fila prioritária</h2>
+              <span class="section-meta">Alertas</span>
             </div>
             <div id="priorityList" class="stack-list"></div>
           </article>
@@ -66,6 +118,7 @@
           <article class="panel">
             <div class="section-head">
               <h2>Indicadores</h2>
+              <span class="section-meta">Cobertura</span>
             </div>
             <div id="coverageList" class="coverage-list"></div>
           </article>
@@ -74,13 +127,32 @@
         <section class="overview-grid">
           <article class="panel">
             <div class="section-head">
+              <h2>Microáreas e localidades</h2>
+              <span class="section-meta">Território</span>
+            </div>
+            <div id="territoryList" class="stack-list"></div>
+          </article>
+
+          <article class="panel">
+            <div class="section-head">
+              <h2>Equipe responsável</h2>
+              <span class="section-meta">Profissionais</span>
+            </div>
+            <div id="professionalList" class="stack-list"></div>
+          </article>
+        </section>
+
+        <section id="importSection" class="overview-grid">
+          <article class="panel">
+            <div class="section-head">
               <h2>Importação PEC</h2>
+              <span class="section-meta">Arquivo</span>
             </div>
             <form id="importForm" class="form-grid">
               <select name="source_kind">
-                <option value="auto">Detecção automática do arquivo</option>
+                <option value="auto">Detecção automática</option>
                 <option value="pec">Planilha do PEC / aba Dados</option>
-                <option value="registro">Planilha simplificada Registro pac.</option>
+                <option value="registro">Planilha Registro pac.</option>
               </select>
               <input name="file" type="file" accept=".xlsx,.xlsm,.csv,.tsv,.txt" required />
               <div class="wide form-actions">
@@ -97,6 +169,7 @@
           <article class="panel">
             <div class="section-head">
               <h2>Últimas importações</h2>
+              <span class="section-meta">Histórico</span>
             </div>
             <div id="importRunsList" class="stack-list"></div>
           </article>
@@ -106,6 +179,7 @@
           <article class="panel">
             <div class="section-head">
               <h2>Equipe</h2>
+              <span class="section-meta">Acessos</span>
             </div>
             <div id="teamList" class="stack-list"></div>
           </article>
@@ -113,6 +187,7 @@
           <article class="panel">
             <div class="section-head">
               <h2>Novo acesso</h2>
+              <span class="section-meta">Convite</span>
             </div>
             <form id="teamForm" class="form-grid">
               <input name="full_name" placeholder="Nome completo" required />
@@ -131,15 +206,18 @@
           </article>
         </section>
 
-        <section class="workspace-grid">
+        <section id="workspaceSection" class="workspace-grid">
           <article class="panel list-panel">
             <div class="section-head">
-              <h2>Carteira</h2>
+              <div>
+                <h2>Carteira</h2>
+                <p class="section-caption">Busca, risco e fase</p>
+              </div>
               <span id="patientCountLabel" class="section-meta">0</span>
             </div>
 
             <form id="filtersForm" class="filters">
-              <input id="searchInput" name="search" type="search" placeholder="Buscar" />
+              <input id="searchInput" name="search" type="search" placeholder="Buscar paciente" />
 
               <select id="riskFilter" name="risk">
                 <option value="all">Todos os riscos</option>
@@ -162,8 +240,8 @@
           <article class="panel detail-panel">
             <div id="patientEmpty" class="empty-state">
               <div>
-                <h2>Base vazia</h2>
-                <p>Cadastre a primeira usuária ou faça a importação do PEC.</p>
+                <h2>Base pronta para iniciar</h2>
+                <p>Cadastre a primeira paciente ou importe um arquivo.</p>
                 <a class="primary-link" href="#newPatientSection">Novo cadastro</a>
               </div>
             </div>
@@ -173,12 +251,30 @@
 
         <section id="newPatientSection" class="panel form-panel">
           <div class="section-head">
-            <h2>Novo cadastro</h2>
+            <div>
+              <h2>Novo cadastro</h2>
+              <p class="section-caption">Entrada manual</p>
+            </div>
           </div>
 
           <form id="newPatientForm" class="form-grid">
+            <input name="external_code" placeholder="Numero de ordem / prontuario" />
+            <input name="cpf" placeholder="CPF" />
+            <input name="cns" placeholder="CNS" />
             <input name="name" placeholder="Nome" required />
+            <input name="birth_date" type="date" />
+            <select name="sex">
+              <option value="">Sexo</option>
+              <option value="F">Feminino</option>
+              <option value="M">Masculino</option>
+              <option value="Outro">Outro</option>
+            </select>
+            <input name="race_color" placeholder="Raca/cor" />
+            <input name="mother_name" placeholder="Nome da mae" />
             <input name="locality" placeholder="Localidade" />
+            <input name="microarea" placeholder="Microarea" />
+            <input name="area_team" placeholder="Equipe / area" />
+            <input name="record_responsible" placeholder="Responsavel pelo registro" />
 
             <select name="risk_level">
               <option>Baixo risco</option>
@@ -194,6 +290,7 @@
             <input name="gestational_weeks" type="number" min="1" max="45" placeholder="IG semanas" />
             <input name="dum" type="date" />
             <input name="dpp" type="date" />
+            <input name="next_scheduled_visit" type="date" />
             <input name="actual_birth_date" type="date" />
             <input name="maternity_reference" placeholder="Maternidade" />
             <textarea class="wide" name="notes" rows="3" placeholder="Observações"></textarea>
