@@ -6,7 +6,7 @@ import json
 import mimetypes
 import os
 import re
-from datetime import datetime
+from datetime import date, datetime
 from http import HTTPStatus
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -241,7 +241,7 @@ def send_json(
     status: int = 200,
     headers: dict[str, str] | None = None,
 ) -> None:
-    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    body = json.dumps(payload, ensure_ascii=False, default=json_default).encode("utf-8")
     handler.send_response(status)
     handler.send_header("Content-Type", "application/json; charset=utf-8")
     handler.send_header("Content-Length", str(len(body)))
@@ -254,6 +254,12 @@ def send_json(
 
 def send_error_json(handler: BaseHTTPRequestHandler, message: str, *, status: int = 400) -> None:
     send_json(handler, {"error": message}, status=status)
+
+
+def json_default(value):
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
 
 
 def cookie_header(token: str, *, secure: bool) -> str:
