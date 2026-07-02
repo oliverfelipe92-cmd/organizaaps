@@ -495,6 +495,8 @@ def initialize(target: str | Path | None) -> None:
     resolved = _resolve_target(target)
     if _is_database_url(resolved):
         with connect(resolved) as connection:
+            # Serialize first-run DDL across concurrent serverless instances.
+            connection.execute("SELECT pg_advisory_xact_lock(?)", (804_202_607,))
             connection.executescript(POSTGRES_SCHEMA)
             for column_name, definition in PATIENT_COLUMNS.items():
                 ensure_column(connection, "patients", column_name, definition)
