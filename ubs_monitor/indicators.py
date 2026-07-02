@@ -313,7 +313,9 @@ def build_priorities(patient: dict[str, Any], events: list[dict[str, Any]], indi
                 }
             )
 
-    if (patient.get("risk_level") or "").lower() == "alto risco" and not patient.get("high_risk_shared_care"):
+    if (patient.get("risk_level") or "").lower() == "alto risco" and not (
+        patient.get("high_risk_shared_care") or patient.get("shared_care")
+    ):
         priorities.append(
             {
                 "level": "alta",
@@ -354,10 +356,18 @@ def summarize_patient(patient: dict[str, Any], events: list[dict[str, Any]], tod
     active_weight = sum(item["weight"] for item in indicators if item["state"] != "upcoming") or 100
     priorities = build_priorities(patient, events, indicators, today=today)
     last_consult = latest_event_date(events, "prenatal_consult") or latest_event_date(events, "puerperal_consult")
+    birth_date = iso_to_date(patient.get("actual_birth_date")) or latest_event_date(events, "delivery")
+    birth_date_value = iso_to_date(patient.get("birth_date"))
     if not last_consult:
         last_consult = iso_to_date(patient.get("last_consultation_date"))
 
     days_since_last_consult = (today - last_consult).days if last_consult else None
+    postpartum_days = (today - birth_date).days if birth_date else None
+    age_years = None
+    if birth_date_value:
+        age_years = today.year - birth_date_value.year - (
+            (today.month, today.day) < (birth_date_value.month, birth_date_value.day)
+        )
 
     return {
         "stage_label": stage_label(patient),
@@ -366,4 +376,6 @@ def summarize_patient(patient: dict[str, Any], events: list[dict[str, Any]], tod
         "current_score": round((completed_weight / active_weight) * 100, 1),
         "priorities": priorities,
         "days_since_last_consult": days_since_last_consult,
+        "postpartum_days": postpartum_days,
+        "age_years": age_years,
     }
