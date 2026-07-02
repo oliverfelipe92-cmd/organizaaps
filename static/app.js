@@ -5,8 +5,25 @@ const state = {
   patients: [],
 };
 
+const DEFAULT_BOOTSTRAP = {
+  needs_setup: false,
+  user: null,
+  roles: [
+    { value: "admin", label: "Administrador" },
+    { value: "nurse", label: "Enfermagem" },
+    { value: "acs", label: "ACS" },
+    { value: "viewer", label: "Somente leitura" },
+  ],
+  permissions: {
+    can_manage_team: false,
+    can_import: false,
+    can_write: false,
+  },
+};
+
 const refs = {
   authScreen: document.getElementById("authScreen"),
+  authFeedback: document.getElementById("authFeedback"),
   setupCard: document.getElementById("setupCard"),
   loginCard: document.getElementById("loginCard"),
   setupForm: document.getElementById("setupForm"),
@@ -23,6 +40,8 @@ const refs = {
   statsGrid: document.getElementById("statsGrid"),
   priorityList: document.getElementById("priorityList"),
   coverageList: document.getElementById("coverageList"),
+  territoryList: document.getElementById("territoryList"),
+  professionalList: document.getElementById("professionalList"),
   patientsList: document.getElementById("patientsList"),
   patientDetail: document.getElementById("patientDetail"),
   patientEmpty: document.getElementById("patientEmpty"),
@@ -75,11 +94,7 @@ function currentUser() {
 }
 
 function permissions() {
-  return state.bootstrap?.permissions || {
-    can_manage_team: false,
-    can_import: false,
-    can_write: false,
-  };
+  return state.bootstrap?.permissions || DEFAULT_BOOTSTRAP.permissions;
 }
 
 function roleOptions(selectedRole) {
@@ -140,6 +155,31 @@ async function refreshBootstrap() {
   }
 }
 
+function setAuthFeedback(message = "", tone = "error") {
+  if (!refs.authFeedback) return;
+  if (!message) {
+    refs.authFeedback.hidden = true;
+    refs.authFeedback.textContent = "";
+    delete refs.authFeedback.dataset.tone;
+    return;
+  }
+  refs.authFeedback.hidden = false;
+  refs.authFeedback.dataset.tone = tone;
+  refs.authFeedback.textContent = message;
+}
+
+function setFormBusy(form, busy, busyLabel) {
+  const submitButton = form?.querySelector('button[type="submit"]');
+  if (!submitButton) return;
+  if (!submitButton.dataset.defaultLabel) {
+    submitButton.dataset.defaultLabel = submitButton.textContent || "";
+  }
+  form.querySelectorAll("input, select, textarea, button").forEach((element) => {
+    element.disabled = busy;
+  });
+  submitButton.textContent = busy ? busyLabel : submitButton.dataset.defaultLabel;
+}
+
 function renderAuthState() {
   const needsSetup = Boolean(state.bootstrap?.needs_setup);
   const user = currentUser();
@@ -161,6 +201,7 @@ function renderAuthState() {
   });
 
   refs.userLabel.textContent = user ? `${user.full_name} · ${user.role_label || user.role}` : "";
+  setAuthFeedback("");
   if (refs.teamForm) {
     const roleSelect = refs.teamForm.querySelector('select[name="role"]');
     if (roleSelect && state.bootstrap?.roles?.length) {
@@ -183,6 +224,7 @@ async function loadDashboardAndPatients() {
   renderStats();
   renderPriorities();
   renderCoverage();
+  renderBreakdowns();
   renderPatients();
 
   if (state.selectedId) {
@@ -229,6 +271,13 @@ function renderStats() {
     puerperas: 0,
     average_journey_score: 0,
     overdue_follow_ups: 0,
+    late_capture: 0,
+    without_tests: 0,
+    without_dental: 0,
+    without_maternity: 0,
+    high_risk_without_shared_care: 0,
+    puerperas_without_7d_visit: 0,
+    puerperas_without_42d_consult: 0,
   };
   const cards = [
     ["Ativas", stats.total_active],
@@ -236,6 +285,13 @@ function renderStats() {
     ["Puérperas", stats.puerperas],
     ["Score", `${stats.average_journey_score}%`],
     ["Atrasos", stats.overdue_follow_ups],
+    ["Captação tardia", stats.late_capture],
+    ["Sem testes", stats.without_tests],
+    ["Sem odonto", stats.without_dental],
+    ["Sem maternidade", stats.without_maternity],
+    ["AR sem compartilhamento", stats.high_risk_without_shared_care],
+    ["Sem visita 7d", stats.puerperas_without_7d_visit],
+    ["Sem consulta 42d", stats.puerperas_without_42d_consult],
   ];
   refs.statsGrid.innerHTML = cards
     .map(
@@ -293,6 +349,41 @@ function renderCoverage() {
     .join("");
 }
 
+function renderBreakdowns() {
+  const localityItems = state.dashboard?.breakdowns?.locality || [];
+  const professionalItems = state.dashboard?.breakdowns?.professional || [];
+
+  refs.territoryList.innerHTML = localityItems.length
+    ? localityItems
+        .map(
+          ([label, total]) => `
+            <article class="timeline-item compact-item">
+              <div class="timeline-head">
+                <strong>${escapeHtml(label)}</strong>
+                <span class="pill pill-status">${escapeHtml(total)}</span>
+              </div>
+            </article>
+          `
+        )
+        .join("")
+    : `<p class="hint">Sem distribuição territorial.</p>`;
+
+  refs.professionalList.innerHTML = professionalItems.length
+    ? professionalItems
+        .map(
+          ([label, total]) => `
+            <article class="timeline-item compact-item">
+              <div class="timeline-head">
+                <strong>${escapeHtml(label)}</strong>
+                <span class="pill pill-status">${escapeHtml(total)}</span>
+              </div>
+            </article>
+          `
+        )
+        .join("")
+    : `<p class="hint">Sem distribuição por profissional.</p>`;
+}
+
 function renderPatients() {
   refs.patientCountLabel.textContent = `${state.patients.length}`;
   if (!state.patients.length) {
@@ -306,7 +397,7 @@ function renderPatients() {
           <div class="patient-card-head">
             <div>
               <h3>${escapeHtml(patient.name)}</h3>
-              <p class="patient-meta">${escapeHtml(patient.locality || "Sem localidade")}</p>
+              <p class="patient-meta">${escapeHtml(patient.microarea || patient.locality || "Sem localidade")}</p>
             </div>
             <span class="score-chip">${escapeHtml(patient.current_score)}%</span>
           </div>
@@ -317,6 +408,7 @@ function renderPatients() {
           <p class="patient-meta">${escapeHtml(patient.stage_label || "Sem fase")} · ${
             patient.days_since_last_consult != null ? `${patient.days_since_last_consult}d` : "sem consulta"
           }</p>
+          <p class="patient-meta">${escapeHtml(patient.last_professional || patient.locality || "Sem profissional")}</p>
         </article>
       `
     )
@@ -438,13 +530,15 @@ function renderDetail(patient) {
         <div class="detail-head">
           <div>
             <h2 class="detail-title">${escapeHtml(patient.name)}</h2>
-            <p class="patient-meta">${escapeHtml(patient.stage_label || "Sem fase")} · ${escapeHtml(patient.locality || "Sem localidade")}</p>
+            <p class="patient-meta">${escapeHtml(patient.stage_label || "Sem fase")} · ${escapeHtml(patient.microarea || patient.locality || "Sem localidade")}</p>
           </div>
           <span class="score-chip">${escapeHtml(patient.current_score)}%</span>
         </div>
         <div class="priority-pills">
           <span class="pill pill-risk">${escapeHtml(patient.risk_level || "Sem classificação")}</span>
           <span class="pill pill-status">${escapeHtml(patient.status)}</span>
+          ${patient.age_years != null ? `<span class="pill pill-upcoming">${escapeHtml(patient.age_years)} anos</span>` : ""}
+          ${patient.maternity_reference ? `<span class="pill pill-completed">${escapeHtml(patient.maternity_reference)}</span>` : ""}
           <span class="muted-inline">${patient.days_since_last_consult != null ? `${patient.days_since_last_consult} dias` : "sem consulta"}</span>
         </div>
       </section>
@@ -463,8 +557,23 @@ function renderDetail(patient) {
         <section class="detail-card">
           <div class="section-head"><h2>Perfil</h2></div>
           <form id="profileForm" class="form-grid" data-patient-id="${patient.id}">
+            <input name="external_code" value="${escapeHtml(patient.external_code || "")}" placeholder="Numero de ordem / prontuario" />
+            <input name="cpf" value="${escapeHtml(patient.cpf || "")}" placeholder="CPF" />
+            <input name="cns" value="${escapeHtml(patient.cns || "")}" placeholder="CNS" />
             <input name="name" value="${escapeHtml(patient.name)}" placeholder="Nome" />
+            <input name="birth_date" type="date" value="${escapeHtml(patient.birth_date || "")}" />
+            <select name="sex">
+              <option value="" ${!patient.sex ? "selected" : ""}>Sexo</option>
+              <option value="F" ${patient.sex === "F" ? "selected" : ""}>Feminino</option>
+              <option value="M" ${patient.sex === "M" ? "selected" : ""}>Masculino</option>
+              <option value="Outro" ${patient.sex === "Outro" ? "selected" : ""}>Outro</option>
+            </select>
+            <input name="race_color" value="${escapeHtml(patient.race_color || "")}" placeholder="Raca/cor" />
+            <input name="mother_name" value="${escapeHtml(patient.mother_name || "")}" placeholder="Nome da mae" />
             <input name="locality" value="${escapeHtml(patient.locality || "")}" placeholder="Localidade" />
+            <input name="microarea" value="${escapeHtml(patient.microarea || "")}" placeholder="Microarea" />
+            <input name="area_team" value="${escapeHtml(patient.area_team || "")}" placeholder="Equipe / area" />
+            <input name="record_responsible" value="${escapeHtml(patient.record_responsible || "")}" placeholder="Responsavel pelo registro" />
             <select name="risk_level">
               <option ${patient.risk_level === "Baixo risco" ? "selected" : ""}>Baixo risco</option>
               <option ${patient.risk_level === "Risco intermediario" ? "selected" : ""}>Risco intermediario</option>
@@ -476,11 +585,48 @@ function renderDetail(patient) {
               <option value="encerrado" ${patient.status === "encerrado" ? "selected" : ""}>Encerrado</option>
             </select>
             <input name="gestational_weeks" type="number" min="1" max="45" value="${escapeHtml(patient.gestational_weeks || "")}" placeholder="IG semanas" />
+            <input name="gestational_age_label" value="${escapeHtml(patient.gestational_age_label || "")}" placeholder="Estagio gestacional" />
             <input name="dum" type="date" value="${escapeHtml(patient.dum || "")}" />
             <input name="dpp" type="date" value="${escapeHtml(patient.dpp || "")}" />
+            <input name="next_scheduled_visit" type="date" value="${escapeHtml(patient.next_scheduled_visit || "")}" />
             <input name="actual_birth_date" type="date" value="${escapeHtml(patient.actual_birth_date || "")}" />
+            <input name="weight_kg" type="number" step="0.1" value="${escapeHtml(patient.weight_kg || "")}" placeholder="Peso (kg)" />
+            <input name="height_cm" type="number" step="0.1" value="${escapeHtml(patient.height_cm || "")}" placeholder="Estatura (cm)" />
+            <input name="bmi" type="number" step="0.1" value="${escapeHtml(patient.bmi || "")}" placeholder="IMC" />
+            <input name="weight_gain_kg" type="number" step="0.1" value="${escapeHtml(patient.weight_gain_kg || "")}" placeholder="Ganho ponderal" />
+            <input name="systolic_bp" type="number" value="${escapeHtml(patient.systolic_bp || "")}" placeholder="PAS" />
+            <input name="diastolic_bp" type="number" value="${escapeHtml(patient.diastolic_bp || "")}" placeholder="PAD" />
+            <input name="capillary_glucose" type="number" step="0.1" value="${escapeHtml(patient.capillary_glucose || "")}" placeholder="Glicemia capilar" />
+            <input name="fetal_heartbeat" value="${escapeHtml(patient.fetal_heartbeat || "")}" placeholder="BCF" />
+            <input name="uterine_height_cm" type="number" step="0.1" value="${escapeHtml(patient.uterine_height_cm || "")}" placeholder="Altura uterina (cm)" />
+            <input name="first_trimester_ultrasound_weeks" type="number" step="0.1" value="${escapeHtml(patient.first_trimester_ultrasound_weeks || "")}" placeholder="IG por USG 1o tri" />
+            <input name="vaccination_status" value="${escapeHtml(patient.vaccination_status || "")}" placeholder="Vacinacao" />
+            <input name="rapid_tests_status" value="${escapeHtml(patient.rapid_tests_status || "")}" placeholder="Testes rapidos" />
+            <input name="trimester_exams_status" value="${escapeHtml(patient.trimester_exams_status || "")}" placeholder="Exames do trimestre" />
+            <input name="dental_evaluation_status" value="${escapeHtml(patient.dental_evaluation_status || "")}" placeholder="Avaliacao odontologica" />
             <input class="wide" name="maternity_reference" value="${escapeHtml(patient.maternity_reference || "")}" placeholder="Maternidade" />
             <input name="last_professional" value="${escapeHtml(patient.last_professional || "")}" placeholder="Profissional" />
+            <input name="risk_factor_1" value="${escapeHtml(patient.risk_factor_1 || "")}" placeholder="Fator de risco 1" />
+            <input name="risk_factor_2" value="${escapeHtml(patient.risk_factor_2 || "")}" placeholder="Fator de risco 2" />
+            <input name="risk_factor_3" value="${escapeHtml(patient.risk_factor_3 || "")}" placeholder="Fator de risco 3" />
+            <input name="hypertensive_disease_status" value="${escapeHtml(patient.hypertensive_disease_status || "")}" placeholder="Doenca hipertensiva" />
+            <input name="preeclampsia_risk_factors" value="${escapeHtml(patient.preeclampsia_risk_factors || "")}" placeholder="Risco pre-eclampsia" />
+            <input name="preeclampsia_prophylaxis" value="${escapeHtml(patient.preeclampsia_prophylaxis || "")}" placeholder="Profilaxia pre-eclampsia" />
+            <input name="uti_status" value="${escapeHtml(patient.uti_status || "")}" placeholder="ITU diagnostico" />
+            <input name="uti_treatment" value="${escapeHtml(patient.uti_treatment || "")}" placeholder="ITU tratamento" />
+            <input name="uti_cure_control" value="${escapeHtml(patient.uti_cure_control || "")}" placeholder="ITU controle de cura" />
+            <input name="gestational_diabetes_status" value="${escapeHtml(patient.gestational_diabetes_status || "")}" placeholder="Diabetes gestacional" />
+            <input name="medications_in_use" value="${escapeHtml(patient.medications_in_use || "")}" placeholder="Medicacoes em uso" />
+            <input name="urgent_care_last_year" type="number" value="${escapeHtml(patient.urgent_care_last_year || "")}" placeholder="Urgencia no ultimo ano" />
+            <input name="hospitalizations_last_year" type="number" value="${escapeHtml(patient.hospitalizations_last_year || "")}" placeholder="Internacoes no ultimo ano" />
+            <input name="reproductive_planning_status" value="${escapeHtml(patient.reproductive_planning_status || "")}" placeholder="Planejamento reprodutivo" />
+            <input name="active_search_reason" value="${escapeHtml(patient.active_search_reason || "")}" placeholder="Motivo da busca ativa" />
+            <input name="outcome" value="${escapeHtml(patient.outcome || "")}" placeholder="Desfecho" />
+            <input name="delivery_type" value="${escapeHtml(patient.delivery_type || "")}" placeholder="Tipo de parto" />
+            <input name="discharge_date" type="date" value="${escapeHtml(patient.discharge_date || "")}" />
+            <input name="delivery_intercurrences" value="${escapeHtml(patient.delivery_intercurrences || "")}" placeholder="Intercorrencias do parto" />
+            <input name="breastfeeding_status" value="${escapeHtml(patient.breastfeeding_status || "")}" placeholder="Aleitamento materno" />
+            <input name="postpartum_reproductive_planning" value="${escapeHtml(patient.postpartum_reproductive_planning || "")}" placeholder="Planejamento pos-parto" />
             <label class="check-item">
               <input name="high_risk_shared_care" type="checkbox" ${patient.high_risk_shared_care ? "checked" : ""} />
               <span>Alto risco compartilhado</span>
@@ -489,7 +635,48 @@ function renderDetail(patient) {
               <input name="active_search" type="checkbox" ${patient.active_search ? "checked" : ""} />
               <span>Busca ativa</span>
             </label>
+            <label class="check-item">
+              <input name="pregnancy_booklet_updated" type="checkbox" ${patient.pregnancy_booklet_updated ? "checked" : ""} />
+              <span>Caderneta atualizada</span>
+            </label>
+            <label class="check-item">
+              <input name="care_plan_defined" type="checkbox" ${patient.care_plan_defined ? "checked" : ""} />
+              <span>Plano de cuidados elaborado</span>
+            </label>
+            <label class="check-item">
+              <input name="care_plan_monitored" type="checkbox" ${patient.care_plan_monitored ? "checked" : ""} />
+              <span>Plano de cuidados monitorado</span>
+            </label>
+            <label class="check-item">
+              <input name="shared_care" type="checkbox" ${patient.shared_care ? "checked" : ""} />
+              <span>Cuidado compartilhado</span>
+            </label>
+            <label class="check-item">
+              <input name="maternity_linked" type="checkbox" ${patient.maternity_linked ? "checked" : ""} />
+              <span>Maternidade vinculada</span>
+            </label>
+            <label class="check-item">
+              <input name="maternity_risk_updated" type="checkbox" ${patient.maternity_risk_updated ? "checked" : ""} />
+              <span>Maternidade atualizada pelo risco</span>
+            </label>
+            <label class="check-item">
+              <input name="postpartum_home_visit_7d" type="checkbox" ${patient.postpartum_home_visit_7d ? "checked" : ""} />
+              <span>Visita puerperal ate 7 dias</span>
+            </label>
+            <label class="check-item">
+              <input name="postpartum_consult_7d" type="checkbox" ${patient.postpartum_consult_7d ? "checked" : ""} />
+              <span>Consulta puerperal ate 7 dias</span>
+            </label>
+            <label class="check-item">
+              <input name="postpartum_consult_42d" type="checkbox" ${patient.postpartum_consult_42d ? "checked" : ""} />
+              <span>Consulta ate 42 dias</span>
+            </label>
+            <label class="check-item">
+              <input name="postpartum_consult_after_42d" type="checkbox" ${patient.postpartum_consult_after_42d ? "checked" : ""} />
+              <span>Consulta apos 42 dias</span>
+            </label>
             <textarea class="wide" name="notes" rows="4" placeholder="Observações">${escapeHtml(patient.notes || "")}</textarea>
+            <textarea class="wide" name="postpartum_intercurrences" rows="3" placeholder="Intercorrencias do puerperio">${escapeHtml(patient.postpartum_intercurrences || "")}</textarea>
             <div class="wide form-actions"><button class="primary-button" type="submit">Salvar</button></div>
           </form>
         </section>
@@ -565,7 +752,7 @@ async function renderSelectedPatient() {
 function handleApiError(error) {
   if (error?.status === 401) {
     toast("Sessão expirada. Entre novamente.");
-    state.bootstrap = { needs_setup: false, user: null };
+    state.bootstrap = { ...DEFAULT_BOOTSTRAP };
     state.selectedId = null;
     renderAuthState();
     return;
@@ -582,32 +769,40 @@ function applyWritePermissionsToDetail() {
 
 refs.setupForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  setAuthFeedback("");
+  setFormBusy(event.currentTarget, true, "Criando...");
   try {
     await apiJson("/api/setup", { method: "POST", body: formToJson(event.currentTarget) });
     event.currentTarget.reset();
     await refreshBootstrap();
     toast("Administrador criado.");
   } catch (error) {
-    handleApiError(error);
+    setAuthFeedback(error.message || "Nao foi possivel criar o acesso.", "error");
+  } finally {
+    setFormBusy(event.currentTarget, false, "Criando...");
   }
 });
 
 refs.loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  setAuthFeedback("");
+  setFormBusy(event.currentTarget, true, "Entrando...");
   try {
     await apiJson("/api/auth/login", { method: "POST", body: formToJson(event.currentTarget) });
     event.currentTarget.reset();
     await refreshBootstrap();
     toast("Acesso liberado.");
   } catch (error) {
-    handleApiError(error);
+    setAuthFeedback(error.message || "Nao foi possivel entrar.", "error");
+  } finally {
+    setFormBusy(event.currentTarget, false, "Entrando...");
   }
 });
 
 refs.logoutButton.addEventListener("click", async () => {
   try {
     await apiJson("/api/auth/logout", { method: "POST" });
-    state.bootstrap = { needs_setup: false, user: null };
+    state.bootstrap = { ...DEFAULT_BOOTSTRAP };
     state.selectedId = null;
     renderAuthState();
     toast("Sessão encerrada.");
@@ -733,4 +928,13 @@ refs.patientDetail.addEventListener("submit", async (event) => {
   }
 });
 
-await refreshBootstrap();
+refs.setupForm.addEventListener("input", () => setAuthFeedback(""));
+refs.loginForm.addEventListener("input", () => setAuthFeedback(""));
+
+try {
+  await refreshBootstrap();
+} catch (error) {
+  state.bootstrap = { ...DEFAULT_BOOTSTRAP };
+  renderAuthState();
+  setAuthFeedback("Nao foi possivel conectar ao sistema agora.", "error");
+}
