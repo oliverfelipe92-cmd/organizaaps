@@ -4,6 +4,7 @@ import csv
 import hashlib
 import json
 import re
+import unicodedata
 from datetime import date, datetime, timedelta
 from io import BytesIO, StringIO
 from pathlib import Path
@@ -24,7 +25,9 @@ def clean_text(value: Any) -> str:
 
 
 def slug_text(value: Any) -> str:
-    return re.sub(r"[^a-z0-9]+", "_", clean_text(value).lower()).strip("_")
+    normalized = unicodedata.normalize("NFKD", clean_text(value))
+    ascii_text = normalized.encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"[^a-z0-9]+", "_", ascii_text.lower()).strip("_")
 
 
 def digits_only(value: Any) -> str:
@@ -52,6 +55,18 @@ def parse_boolish(value: Any) -> int:
     if not text:
         return 0
     return 1 if text in {"1", "sim", "yes", "true", "realizado", "realizada", "em dia"} else 0
+
+
+def parse_floatish(value: Any) -> float | None:
+    if value in (None, ""):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    text = clean_text(value).replace(",", ".")
+    try:
+        return float(text)
+    except ValueError:
+        return None
 
 
 def normalize_risk(value: Any) -> str:
@@ -247,7 +262,7 @@ def parse_dados_sheet(workbook_bytes: bytes) -> list[dict]:
         last_consultation_date = parse_excel_date(row_map.get("data_de_atendimento"))
         actual_birth_date = parse_excel_date(row_map.get("parto_e_nascimento_data")) or parse_excel_date(
             row_map.get("parto_e_nascimento_data_da_alta")
-        )
+        ) or parse_excel_date(row_map.get("desfecho_data"))
         risk_level = normalize_risk(row_map.get("estratificacao_de_risco_registrar_o_resultado_da_estratificacao_e_os_tres_fatores_mais_importantes_identificados_resultado"))
         if risk_level == "Sem classificacao":
             risk_level = normalize_risk(row_map.get("vulnerabilidade"))
@@ -257,20 +272,84 @@ def parse_dados_sheet(workbook_bytes: bytes) -> list[dict]:
             "cpf": digits_only(row_map.get("cpf_somente_numeros")) or None,
             "name": name,
             "birth_date": parse_excel_date(row_map.get("data_nascimento")),
+            "sex": clean_text(row_map.get("sexo")) or None,
+            "race_color": clean_text(row_map.get("raca_cor")) or None,
             "mother_name": clean_text(row_map.get("nome_da_mae")) or None,
+            "record_responsible": clean_text(row_map.get("responsavel_pelo_registro")) or None,
             "risk_level": risk_level,
             "gestational_age_label": gestational_age_label,
             "gestational_weeks": gestational_weeks,
             "dum": dum,
             "dpp": dpp,
+            "first_trimester_ultrasound_weeks": parse_floatish(row_map.get("ig")),
+            "weight_kg": parse_floatish(row_map.get("peso_em_kg")),
+            "height_cm": round(parse_floatish(row_map.get("estatura_em_m")) * 100, 1)
+            if parse_floatish(row_map.get("estatura_em_m"))
+            else None,
+            "bmi": parse_floatish(row_map.get("imc_kg_m2")),
+            "weight_gain_kg": parse_floatish(row_map.get("ganho_ponderal")),
+            "systolic_bp": int(parse_floatish(row_map.get("nivel_pressorico_pas_mmhg")))
+            if parse_floatish(row_map.get("nivel_pressorico_pas_mmhg")) is not None
+            else None,
+            "diastolic_bp": int(parse_floatish(row_map.get("nivel_pressorico_pad_mmhg")))
+            if parse_floatish(row_map.get("nivel_pressorico_pad_mmhg")) is not None
+            else None,
+            "capillary_glucose": parse_floatish(row_map.get("nivel_glicemico_usuarias_com_diabetes_glicemia_capilar_mg_dl")),
+            "fetal_heartbeat": clean_text(row_map.get("bcf_numero_de_batimentos")) or None,
+            "uterine_height_cm": parse_floatish(row_map.get("utero_fita_em_cm")),
+            "vaccination_status": clean_text(row_map.get("vacinacao")) or None,
+            "rapid_tests_status": clean_text(row_map.get("testes_rapidos_previstos_para_o_trimestre")) or None,
+            "trimester_exams_status": clean_text(row_map.get("exames_previstos_para_o_trimestre")) or None,
+            "dental_evaluation_status": clean_text(row_map.get("avaliacao_odontologica")) or None,
+            "pregnancy_booklet_updated": parse_boolish(row_map.get("caderneta_da_gestante")),
             "actual_birth_date": actual_birth_date,
             "last_consultation_date": last_consultation_date,
             "last_professional": clean_text(row_map.get("responsavel_pelo_registro")) or None,
+            "risk_factor_1": clean_text(
+                row_map.get("estratificacao_de_risco_registrar_o_resultado_da_estratificacao_e_os_tres_fatores_mais_importantes_identificados_fator_1")
+            )
+            or None,
+            "risk_factor_2": clean_text(
+                row_map.get("estratificacao_de_risco_registrar_o_resultado_da_estratificacao_e_os_tres_fatores_mais_importantes_identificados_fator_2")
+            )
+            or None,
+            "risk_factor_3": clean_text(
+                row_map.get("estratificacao_de_risco_registrar_o_resultado_da_estratificacao_e_os_tres_fatores_mais_importantes_identificados_fator_3")
+            )
+            or None,
+            "hypertensive_disease_status": clean_text(row_map.get("doenca_hipertensiva_diagnostico")) or None,
+            "preeclampsia_risk_factors": clean_text(row_map.get("doenca_hipertensiva_fatores_de_risco_pre_eclampsia")) or None,
+            "preeclampsia_prophylaxis": clean_text(row_map.get("doenca_hipertensiva_profilaxia_pre_eclampsia")) or None,
+            "uti_status": clean_text(row_map.get("infeccao_urinaria_diagnostico")) or None,
+            "uti_treatment": clean_text(row_map.get("infeccao_urinaria_tratamento")) or None,
+            "uti_cure_control": clean_text(row_map.get("infeccao_urinaria_controle_de_cura")) or None,
+            "medications_in_use": clean_text(row_map.get("uso_de_medicacoes")) or None,
+            "reproductive_planning_status": clean_text(row_map.get("planejamento_sexual_e_reprodutivo")) or None,
+            "care_plan_defined": parse_boolish(row_map.get("plano_de_cuidados_elaborado_pela_aps")),
+            "care_plan_monitored": parse_boolish(
+                row_map.get("acompanhamento_no_pre_natal_de_alto_risco_plano_de_cuidados_monitorado_pela_aps")
+            ),
+            "shared_care": parse_boolish(row_map.get("acompanhamento_no_pre_natal_de_alto_risco_compartilhamento_do_cuidado")),
+            "next_scheduled_visit": parse_excel_date(
+                row_map.get("acompanhamento_no_pre_natal_de_alto_risco_ultima_consulta_programada")
+            ),
+            "urgent_care_last_year": int(parse_floatish(row_map.get("atendimento_em_servico_de_urgencia_numero_de_vezes_no_ultimo_ano")))
+            if parse_floatish(row_map.get("atendimento_em_servico_de_urgencia_numero_de_vezes_no_ultimo_ano")) is not None
+            else 0,
+            "hospitalizations_last_year": int(parse_floatish(row_map.get("internacao_numero_de_vezes_no_ultimo_ano")))
+            if parse_floatish(row_map.get("internacao_numero_de_vezes_no_ultimo_ano")) is not None
+            else 0,
+            "maternity_linked": parse_boolish(row_map.get("vinculacao_a_maternidade_realizacao")),
             "maternity_reference": clean_text(
                 row_map.get("vinculacao_a_maternidade_nome_da_maternidade_atualizado_de_acordo_com_a_estratificacao_de_risco")
             )
             or clean_text(row_map.get("parto_e_nascimento_maternidade_nome"))
             or None,
+            "maternity_risk_updated": 1
+            if clean_text(row_map.get("vinculacao_a_maternidade_nome_da_maternidade_atualizado_de_acordo_com_a_estratificacao_de_risco"))
+            else 0,
+            "discharge_date": parse_excel_date(row_map.get("parto_e_nascimento_data_da_alta")),
+            "outcome": clean_text(row_map.get("desfecho_tipo")) or None,
             "high_risk_shared_care": parse_boolish(
                 row_map.get("acompanhamento_no_pre_natal_de_alto_risco_compartilhamento_do_cuidado")
             ),
@@ -358,25 +437,7 @@ def parse_dados_sheet(workbook_bytes: bytes) -> list[dict]:
             metadata={"source": "pec_dados"},
         )
 
-        raw = {
-            "external_code": patient.get("external_code"),
-            "cpf": patient.get("cpf"),
-            "name": patient.get("name"),
-            "birth_date": patient.get("birth_date"),
-            "mother_name": patient.get("mother_name"),
-            "risk_level": patient.get("risk_level"),
-            "status": patient.get("status"),
-            "gestational_age_label": patient.get("gestational_age_label"),
-            "gestational_weeks": patient.get("gestational_weeks"),
-            "dum": patient.get("dum"),
-            "dpp": patient.get("dpp"),
-            "actual_birth_date": patient.get("actual_birth_date"),
-            "last_consultation_date": patient.get("last_consultation_date"),
-            "last_professional": patient.get("last_professional"),
-            "maternity_reference": patient.get("maternity_reference"),
-            "high_risk_shared_care": patient.get("high_risk_shared_care"),
-            "notes": patient.get("notes"),
-        }
+        raw = dict(patient)
         records.append(
             {
                 "source_system": "pec_dados",
@@ -522,52 +583,99 @@ def resolve_patient_by_identity(connection, patient: dict) -> int | None:
     return None
 
 
+IMPORT_PATIENT_FIELDS = (
+    "external_code",
+    "name",
+    "cpf",
+    "cns",
+    "birth_date",
+    "sex",
+    "race_color",
+    "mother_name",
+    "locality",
+    "microarea",
+    "area_team",
+    "record_responsible",
+    "risk_level",
+    "status",
+    "gestational_weeks",
+    "gestational_age_label",
+    "dum",
+    "dpp",
+    "first_trimester_ultrasound_weeks",
+    "weight_kg",
+    "height_cm",
+    "bmi",
+    "weight_gain_kg",
+    "systolic_bp",
+    "diastolic_bp",
+    "capillary_glucose",
+    "fetal_heartbeat",
+    "uterine_height_cm",
+    "vaccination_status",
+    "rapid_tests_status",
+    "trimester_exams_status",
+    "dental_evaluation_status",
+    "pregnancy_booklet_updated",
+    "actual_birth_date",
+    "last_consultation_date",
+    "last_professional",
+    "risk_factor_1",
+    "risk_factor_2",
+    "risk_factor_3",
+    "hypertensive_disease_status",
+    "preeclampsia_risk_factors",
+    "preeclampsia_prophylaxis",
+    "uti_status",
+    "uti_treatment",
+    "uti_cure_control",
+    "gestational_diabetes_status",
+    "medications_in_use",
+    "urgent_care_last_year",
+    "hospitalizations_last_year",
+    "reproductive_planning_status",
+    "care_plan_defined",
+    "care_plan_monitored",
+    "shared_care",
+    "next_scheduled_visit",
+    "active_search",
+    "active_search_reason",
+    "maternity_linked",
+    "maternity_reference",
+    "maternity_risk_updated",
+    "postpartum_home_visit_7d",
+    "postpartum_consult_7d",
+    "postpartum_consult_42d",
+    "postpartum_consult_after_42d",
+    "breastfeeding_status",
+    "postpartum_intercurrences",
+    "postpartum_reproductive_planning",
+    "delivery_type",
+    "discharge_date",
+    "delivery_intercurrences",
+    "outcome",
+    "high_risk_shared_care",
+    "source",
+    "notes",
+)
+
+
 def create_patient_from_import(connection, patient: dict, source_system: str) -> int:
-    params = (
-        patient.get("external_code"),
-        patient.get("name"),
-        patient.get("cpf"),
-        patient.get("cns"),
-        patient.get("birth_date"),
-        patient.get("mother_name"),
-        patient.get("locality"),
-        patient.get("risk_level") or "Sem classificacao",
-        patient.get("status") or "gestante",
-        patient.get("gestational_weeks"),
-        patient.get("gestational_age_label"),
-        patient.get("dum"),
-        patient.get("dpp"),
-        patient.get("actual_birth_date"),
-        patient.get("last_consultation_date"),
-        patient.get("last_professional"),
-        patient.get("maternity_reference"),
-        patient.get("high_risk_shared_care", 0),
-        patient.get("active_search", 0),
-        source_system,
-        patient.get("notes"),
-    )
+    payload = dict(patient)
+    payload["source"] = source_system
+    payload["risk_level"] = payload.get("risk_level") or "Sem classificacao"
+    payload["status"] = payload.get("status") or "gestante"
+    columns = list(IMPORT_PATIENT_FIELDS)
+    params = [payload.get(field) for field in columns]
+    placeholders = ", ".join("?" for _ in columns)
+    columns_sql = ", ".join(columns)
     if is_postgres_connection(connection):
         return connection.execute(
-            """
-            INSERT INTO patients (
-                external_code, name, cpf, cns, birth_date, mother_name, locality,
-                risk_level, status, gestational_weeks, gestational_age_label, dum, dpp,
-                actual_birth_date, last_consultation_date, last_professional,
-                maternity_reference, high_risk_shared_care, active_search, source, notes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            RETURNING id
-            """,
+            f"INSERT INTO patients ({columns_sql}) VALUES ({placeholders}) RETURNING id",
             params,
         ).fetchone()["id"]
     return connection.execute(
-        """
-        INSERT INTO patients (
-            external_code, name, cpf, cns, birth_date, mother_name, locality,
-            risk_level, status, gestational_weeks, gestational_age_label, dum, dpp,
-            actual_birth_date, last_consultation_date, last_professional,
-            maternity_reference, high_risk_shared_care, active_search, source, notes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
+        f"INSERT INTO patients ({columns_sql}) VALUES ({placeholders})",
         params,
     ).lastrowid
 
@@ -579,21 +687,9 @@ def update_patient_from_import(connection, patient_id: int, patient: dict, sourc
     current_data = dict(current)
 
     merged = dict(current_data)
-    for field in (
-        "external_code",
-        "cpf",
-        "cns",
-        "birth_date",
-        "mother_name",
-        "locality",
-        "gestational_weeks",
-        "gestational_age_label",
-        "dum",
-        "dpp",
-        "actual_birth_date",
-        "last_professional",
-        "maternity_reference",
-    ):
+    for field in IMPORT_PATIENT_FIELDS:
+        if field in {"source", "notes"}:
+            continue
         if patient.get(field) not in (None, ""):
             merged[field] = patient.get(field)
 
@@ -614,28 +710,7 @@ def update_patient_from_import(connection, patient_id: int, patient: dict, sourc
     if merged.get("actual_birth_date"):
         merged["status"] = "puerpera"
 
-    fields = [
-        "external_code",
-        "cpf",
-        "cns",
-        "birth_date",
-        "mother_name",
-        "locality",
-        "risk_level",
-        "status",
-        "gestational_weeks",
-        "gestational_age_label",
-        "dum",
-        "dpp",
-        "actual_birth_date",
-        "last_consultation_date",
-        "last_professional",
-        "maternity_reference",
-        "high_risk_shared_care",
-        "active_search",
-        "source",
-        "notes",
-    ]
+    fields = list(IMPORT_PATIENT_FIELDS)
     changed = any(current_data.get(field) != merged.get(field) for field in fields)
     if not changed:
         return False
