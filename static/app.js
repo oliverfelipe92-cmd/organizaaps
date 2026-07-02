@@ -769,35 +769,37 @@ function applyWritePermissionsToDetail() {
 
 refs.setupForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  const form = event.currentTarget;
   setAuthFeedback("");
-  const payload = formToJson(event.currentTarget);
-  setFormBusy(event.currentTarget, true, "Criando...");
+  const payload = formToJson(form);
+  setFormBusy(form, true, "Criando...");
   try {
     await apiJson("/api/setup", { method: "POST", body: payload });
-    event.currentTarget.reset();
+    form.reset();
     await refreshBootstrap();
     toast("Administrador criado.");
   } catch (error) {
     setAuthFeedback(error.message || "Nao foi possivel criar o acesso.", "error");
   } finally {
-    setFormBusy(event.currentTarget, false, "Criando...");
+    setFormBusy(form, false, "Criando...");
   }
 });
 
 refs.loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  const form = event.currentTarget;
   setAuthFeedback("");
-  const payload = formToJson(event.currentTarget);
-  setFormBusy(event.currentTarget, true, "Entrando...");
+  const payload = formToJson(form);
+  setFormBusy(form, true, "Entrando...");
   try {
     await apiJson("/api/auth/login", { method: "POST", body: payload });
-    event.currentTarget.reset();
+    form.reset();
     await refreshBootstrap();
     toast("Acesso liberado.");
   } catch (error) {
     setAuthFeedback(error.message || "Nao foi possivel entrar.", "error");
   } finally {
-    setFormBusy(event.currentTarget, false, "Entrando...");
+    setFormBusy(form, false, "Entrando...");
   }
 });
 
@@ -831,13 +833,14 @@ refs.patientsList.addEventListener("click", async (event) => {
 
 refs.newPatientForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  const form = event.currentTarget;
   if (!permissions().can_write) return;
   try {
     const { patient_id } = await apiJson("/api/patients", {
       method: "POST",
-      body: formToJson(event.currentTarget),
+      body: formToJson(form),
     });
-    event.currentTarget.reset();
+    form.reset();
     state.selectedId = patient_id;
     await loadDashboardAndPatients();
     toast("Cadastro realizado.");
@@ -848,14 +851,15 @@ refs.newPatientForm.addEventListener("submit", async (event) => {
 
 refs.importForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  const form = event.currentTarget;
   if (!permissions().can_import) return;
-  const formData = new FormData(event.currentTarget);
+  const formData = new FormData(form);
   try {
     const summary = await apiJson("/api/imports/pec", {
       method: "POST",
       body: formData,
     });
-    event.currentTarget.reset();
+    form.reset();
     await loadAppData();
     toast(
       `Importação concluída: ${summary.inserted_patients} novas, ${summary.updated_patients} atualizadas, ${summary.skipped_rows} sem mudança.`
@@ -867,13 +871,14 @@ refs.importForm.addEventListener("submit", async (event) => {
 
 refs.teamForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  const form = event.currentTarget;
   if (!permissions().can_manage_team) return;
   try {
     await apiJson("/api/users", {
       method: "POST",
-      body: formToJson(event.currentTarget),
+      body: formToJson(form),
     });
-    event.currentTarget.reset();
+    form.reset();
     await loadTeam();
     toast("Usuário criado.");
   } catch (error) {
