@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import secrets
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 
 PBKDF2_ITERATIONS = 390_000
@@ -15,7 +15,7 @@ def normalize_email(value: str | None) -> str:
 
 
 def utcnow() -> datetime:
-    return datetime.now(UTC)
+    return datetime.now(timezone.utc)
 
 
 def hash_password(password: str, *, salt: str | None = None) -> str:
